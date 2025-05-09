@@ -1,0 +1,56 @@
+on:
+  workflow_call:
+    secrets:
+      BACKUP_AWS_ACCESS_KEY_ID:
+        required: true
+      BACKUP_AWS_SECRET_ACCESS_KEY:
+        required: true
+    inputs:
+      s3-bucket:
+        required: true
+        type: string
+
+jobs:
+  backup:
+      runs-on: ubuntu-latest
+  
+      env:
+        AWS_REGION: eu-west-2
+        S3_BUCKET: infra-devops-github-backup
+        S3_PREFIX: github-backups
+        AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_AWS_SECRET_ACCESS_KEY }}
+  
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+  
+        - name: Set date and repo name variables
+          id: vars
+          run: |
+            echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+            echo "month=$(date +'%Y-%m')" >> $GITHUB_OUTPUT
+            echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
+            repo_name="${GITHUB_REPOSITORY##*/}"
+            echo "repo=$repo_name" >> $GITHUB_OUTPUT
+  
+        - name: Zip repository
+          run: |
+            zip -r ${{ steps.vars.outputs.repo }}.zip .
+  
+        - name: Upload daily backup to S3
+          run: |
+            aws s3 cp ${{ steps.vars.outputs.repo }}.zip \
+              s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/daily/${{ steps.vars.outputs.repo }}-${{ steps.vars.outputs.date }}.zip
+  
+        - name: Copy to monthly backup (1st of month)
+          if: ${{ steps.vars.outputs.date == format('{0}-01', steps.vars.outputs.month) }}
+          run: |
+            aws s3 cp s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/daily/${{ steps.vars.outputs.repo }}-${{ steps.vars.outputs.date }}.zip \
+                     s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/monthly/${{ steps.vars.outputs.repo }}-${{ steps.vars.outputs.month }}.zip
+  
+        - name: Copy to yearly backup (Jan 1st)
+          if: ${{ steps.vars.outputs.date == format('{0}-01-01', steps.vars.outputs.year) }}
+          run: |
+            aws s3 cp s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/daily/${{ steps.vars.outputs.repo }}-${{ steps.vars.outputs.date }}.zip \
+                     s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/yearly/${{ steps.vars.outputs.repo }}-${{ steps.vars.outputs.year }}.zip
