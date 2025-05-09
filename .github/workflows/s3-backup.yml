@@ -1,3 +1,8 @@
+# Reusable GitHub S3 Backup Workflow
+# Version: 1.0.0
+# Author: Jenesys-HQ
+# Usage: Called from other repos to back up to S3 (daily, monthly, yearly)
+
 name: GitHub S3 Backup
 
 on:
@@ -18,7 +23,7 @@ jobs:
   
       env:
         AWS_REGION: eu-west-2
-        S3_BUCKET: infra-devops-github-backup
+        S3_BUCKET: ${{ inputs.s3-bucket }}
         S3_PREFIX: github-backups
         AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_AWS_SECRET_ACCESS_KEY }}
