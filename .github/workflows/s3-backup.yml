@@ -1,3 +1,5 @@
+name: GitHub S3 Backup
+
 on:
   workflow_call:
     secrets:
